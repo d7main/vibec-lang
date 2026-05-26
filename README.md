@@ -51,8 +51,8 @@ The extension exposes variables within the VS Code settings namespace. Access th
 
 ### 1. Extension Configuration Namespace
 Access the dedicated configuration block via `Ctrl + ,` to manage API routing parameters, secure authorization keys, and change target model architectures dynamically.
-<img width="1525" height="297" alt="Snímek obrazovky 2026-05-26 173928" src="https://github.com/user-attachments/assets/cb73f0f8-0a3f-4425-8646-cbedd2598837" />
 
+<img width="1502" height="639" alt="Snímek obrazovky 2026-05-26 173718" src="https://github.com/user-attachments/assets/cdcbee52-ca69-400c-8e84-98edc54427b6" />
 
 ### 2. File Creation Pipeline
 Initialize any `.vibe` target file using the native file system interface within the isolated Extension Development Host environment.
@@ -61,12 +61,9 @@ Initialize any `.vibe` target file using the native file system interface within
 
 ### 3. Intent-Driven Transpilation
 Write high-level operational descriptions in plain natural language. The compilation process interprets structural intention and delivers compliant outputs immediately.
-<img width="1502" height="639" alt="Snímek obrazovky 2026-05-26 173718" src="https://github.com/user-attachments/assets/cdcbee52-ca69-400c-8e84-98edc54427b6" />
 
 <img width="1525" height="297" alt="Snímek obrazovky 2026-05-26 173928" src="https://github.com/user-attachments/assets/cb73f0f8-0a3f-4425-8646-cbedd2598837" />
-<img width="1523" height="220" alt="Snímek obrazovky 2026-05-26 173847" src="https://github.com/user-attachments/assets/21ebaefc-5e92-402e-88d9-3e922b6ec1a1" />
-<img width="1539" height="211" alt="Snímek obrazovky 2026-05-26 173801" src="https://github.com/user-attachments/assets/9bad4211-2db2-439a-8c4e-9347a320597d" />
-<img width="1502" height="639" alt="Snímek obrazovky 2026-05-26 173718" src="https://github.com/user-attachments/assets/cdcbee52-ca69-400c-8e84-98edc54427b6" />
+
 
 
 ### Local Setup
