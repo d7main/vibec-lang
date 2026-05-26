@@ -1,4 +1,5 @@
-<img width="1854" height="967" alt="Текст абзаца" src="https://github.com/user-attachments/assets/3b2dd913-c0b7-4525-8f34-dc53bf7c22e6" />
+<img width="1155" height="668" alt="Snímek obrazovky 2026-05-26 172617" src="https://github.com/user-attachments/assets/7c5644d0-ee80-4618-87e6-365b76d4e1c9" />
+
 README.md
 # vibeC
 
