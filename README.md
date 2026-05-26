@@ -1,3 +1,4 @@
+<img width="1854" height="967" alt="Текст абзаца" src="https://github.com/user-attachments/assets/3b2dd913-c0b7-4525-8f34-dc53bf7c22e6" />
 README.md
 # vibeC
 
@@ -21,3 +22,4 @@ Unlike traditional compilers that rely on strict grammar parsing, vibeC utilizes
 1. Clone the repository to your local environment:
    ```bash
    git clone [https://github.com/d7main/vibec-lang.git](https://github.com/d7main/vibec-lang.git)
+
