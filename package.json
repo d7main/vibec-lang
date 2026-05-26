@@ -1,0 +1,86 @@
+{
+  "name": "vibec-compiler",
+  "displayName": "vibeC Compiler",
+  "description": "Compile your vibe into pure C code using AI",
+  "version": "0.0.1",
+  "publisher": "vibec",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:vibe",
+    "onCommand:vibec.compile"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibec.compile",
+        "title": "vibeC: Compile Current Vibe",
+        "icon": "$(play)"
+      }
+    ],
+    "configuration": {
+      "title": "vibeC Compiler",
+      "properties": {
+        "vibeC.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your API key for the AI service used by vibeC.",
+          "scope": "resource"
+        },
+        "vibeC.apiUrl": {
+          "type": "string",
+          "default": "https://api.groq.com/openai/v1/chat/completions",
+          "description": "The chat-completions endpoint URL (any OpenAI-compatible API).",
+          "scope": "resource"
+        },
+        "vibeC.modelName": {
+          "type": "string",
+          "default": "llama-3.3-70b-versatile",
+          "description": "The model name to pass in the API request.",
+          "scope": "resource"
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceExtname == .vibe",
+          "command": "vibec.compile",
+          "group": "navigation"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "vibe",
+        "extensions": [
+          ".vibe"
+        ],
+        "aliases": [
+          "Vibe",
+          "vibe"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "axios": "^1.16.1"
+  }
+}
