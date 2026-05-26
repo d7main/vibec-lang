@@ -1,4 +1,4 @@
-<img width="1155" height="668" alt="Snímek obrazovky 2026-05-26 172617" src="https://github.com/user-attachments/assets/7c5644d0-ee80-4618-87e6-365b76d4e1c9" />
+
 <p align="center">
   <img src="https://img.shields.io/github/v/release/d7main/vibec-lang?style=flat-square&color=66ffff" alt="Release Version">
   <img src="https://img.shields.io/github/license/d7main/vibec-lang?style=flat-square&color=66ffff" alt="License">
@@ -40,7 +40,7 @@ The extension exposes variables within the VS Code settings namespace. Access th
 > **Local Execution Tip:** For offline execution via Ollama, redirect the target URL to `http://localhost:11434/v1/chat/completions` and provide a placeholder value for the API key.
 
 ---
-
+<img width="1155" height="668" alt="Snímek obrazovky 2026-05-26 172617" src="https://github.com/user-attachments/assets/7c5644d0-ee80-4618-87e6-365b76d4e1c9" />
 ## Installation & Deployment
 
 ### Prerequisites
@@ -50,4 +50,10 @@ The extension exposes variables within the VS Code settings namespace. Access th
 ### Local Setup
 1. Clone the repository:
    ```bash
+  
+   Access the root directory and install the development dependencies:
+   ```bash
+cd vibec-lang
+npm install
+
    git clone [https://github.com/d7main/vibec-lang.git](https://github.com/d7main/vibec-lang.git)
