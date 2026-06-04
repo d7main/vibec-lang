@@ -2,7 +2,7 @@
   "name": "vibec-compiler",
   "displayName": "vibeC Compiler",
   "description": "Compile your vibe into pure C code using AI",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "vibec",
   "engines": {
     "vscode": "^1.85.0"
@@ -12,8 +12,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:vibe",
-    "onCommand:vibec.compile"
+    "onLanguage:vibe"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -21,9 +20,27 @@
       {
         "command": "vibec.compile",
         "title": "vibeC: Compile Current Vibe",
-        "icon": "$(play)"
+        "icon": "$(zap)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vibeC-sidebar",
+          "title": "vibeC Control Panel",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "vibeC-sidebar": [
+        {
+          "type": "webview",
+          "id": "vibeC.sidebarView",
+          "name": "Control Panel"
+        }
+      ]
+    },
     "configuration": {
       "title": "vibeC Compiler",
       "properties": {
