@@ -36,21 +36,61 @@ const SYSTEM_PROMPTS: Record<TargetPlatform, string> = {
     'You are an Expert ESP32 Embedded Engineer and the vibeC compiler. ' +
     'Translate the user\'s high-level vibe instructions into fully-functional Arduino-compliant C++ code targeting the ESP32 (Arduino framework). ' +
     'Use ESP32-specific libraries (Wi-Fi, BLE, etc.) when the instructions require networking or Bluetooth functionality. ' +
-    'Include a pinout reference map as a comment block at the top of the file. ' +
-    'Output ONLY clean, compilable code — no markdown wrappers, no explanations.',
+    'At the very end of your response, you MUST append a hidden, strictly structured JSON block enclosed in a unique custom tag pair: <vibe_meta> and </vibe_meta>. ' +
+    'The JSON structure inside <vibe_meta> must look exactly like this: { "components": [ { "name": "SSD1306", "pin_name": "VCC", "target": "3V3" } ], "libraries": ["Adafruit SSD1306", "Adafruit GFX Library"] }. ' +
+    'Output ONLY clean, compilable code followed by the <vibe_meta> block — no markdown wrappers, no explanations. ' +
+    'CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.',
 
   'Arduino Uno/Nano (AVR)':
     'You are an Expert AVR Embedded Engineer and the vibeC compiler. ' +
     'Translate the user\'s high-level vibe instructions into fully-functional Arduino .ino code targeting the Arduino Uno/Nano (ATmega328P). ' +
     'Optimize for low memory (2 KB SRAM, 32 KB Flash). Avoid dynamic memory allocation where possible. ' +
-    'Include a pinout reference map as a comment block at the top of the file. ' +
-    'Output ONLY clean, compilable code — no markdown wrappers, no explanations.',
+    'At the very end of your response, you MUST append a hidden, strictly structured JSON block enclosed in a unique custom tag pair: <vibe_meta> and </vibe_meta>. ' +
+    'The JSON structure inside <vibe_meta> must look exactly like this: { "components": [ { "name": "Button", "pin_name": "Data", "target": "GPIO 4" } ], "libraries": [] }. ' +
+    'Output ONLY clean, compilable code followed by the <vibe_meta> block — no markdown wrappers, no explanations. ' +
+    'CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.',
 
   'Standard C (Generic)':
     'You are the vibeC compiler. Translate the user\'s high-level vibe instructions ' +
     'into pure, valid, and fully-functional C source code. ' +
     'Output ONLY clean C code, no markdown wrappers, no explanations.',
 };
+
+const MODULAR_SYSTEM_PROMPTS: Record<TargetPlatform, string> = {
+  'ESP32 (Arduino Framework)':
+    'You are an Expert ESP32 Embedded Engineer and the vibeC compiler. ' +
+    'Translate the user\'s high-level vibe instructions into fully-functional, production-ready, object-oriented C++ code targeting the ESP32 (Arduino framework). ' +
+    'You MUST split the solution into clean modular files following PlatformIO conventions. ' +
+    'Return ALL files inside a <vibe_files> tag block, using the delimiter format "--- FILE: <path> ---" before each file. ' +
+    'The structure must include at minimum: src/main.cpp, and for each logical component a header in include/ and implementation in src/. ' +
+    'Example structure:\n' +
+    '<vibe_files>\n--- FILE: src/main.cpp ---\n[code]\n--- FILE: include/Display.h ---\n[code]\n--- FILE: src/Display.cpp ---\n[code]\n</vibe_files>\n\n' +
+    'Use ESP32-specific libraries (Wi-Fi, BLE, etc.) when the instructions require networking or Bluetooth functionality. ' +
+    'After the </vibe_files> closing tag, you MUST append a hidden JSON block enclosed in <vibe_meta> and </vibe_meta>. ' +
+    'The JSON structure inside <vibe_meta> must look exactly like this: { "components": [ { "name": "SSD1306", "pin_name": "VCC", "target": "3V3" } ], "libraries": ["Adafruit SSD1306", "Adafruit GFX Library"] }. ' +
+    'Output ONLY the <vibe_files> block followed by the <vibe_meta> block — no markdown wrappers, no explanations. ' +
+    'CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.',
+
+  'Arduino Uno/Nano (AVR)':
+    'You are an Expert AVR Embedded Engineer and the vibeC compiler. ' +
+    'Translate the user\'s high-level vibe instructions into fully-functional, production-ready, object-oriented C++ code targeting the Arduino Uno/Nano (ATmega328P). ' +
+    'Optimize for low memory (2 KB SRAM, 32 KB Flash). Avoid dynamic memory allocation where possible. ' +
+    'You MUST split the solution into clean modular files following PlatformIO conventions. ' +
+    'Return ALL files inside a <vibe_files> tag block, using the delimiter format "--- FILE: <path> ---" before each file. ' +
+    'The structure must include at minimum: src/main.cpp, and for each logical component a header in include/ and implementation in src/. ' +
+    'Example structure:\n' +
+    '<vibe_files>\n--- FILE: src/main.cpp ---\n[code]\n--- FILE: include/Sensor.h ---\n[code]\n--- FILE: src/Sensor.cpp ---\n[code]\n</vibe_files>\n\n' +
+    'After the </vibe_files> closing tag, you MUST append a hidden JSON block enclosed in <vibe_meta> and </vibe_meta>. ' +
+    'The JSON structure inside <vibe_meta> must look exactly like this: { "components": [ { "name": "Button", "pin_name": "Data", "target": "GPIO 4" } ], "libraries": [] }. ' +
+    'Output ONLY the <vibe_files> block followed by the <vibe_meta> block — no markdown wrappers, no explanations. ' +
+    'CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.',
+
+  'Standard C (Generic)':
+    'You are the vibeC compiler. Translate the user\'s high-level vibe instructions ' +
+    'into pure, valid, and fully-functional C source code. ' +
+    'Output ONLY clean C code, no markdown wrappers, no explanations.',
+};
+
 
 /** Returns the output file extension for the given platform. */
 function outputExtension(platform: TargetPlatform): string {
@@ -137,13 +177,14 @@ async function requestCompletion(
   source: string,
   config: VibeCConfig,
   platform: TargetPlatform,
+  modular: boolean = false,
 ): Promise<string> {
   const response = await axios.post<ChatCompletionResponse>(
     config.apiUrl,
     {
       model: config.modelName,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPTS[platform] },
+        { role: 'system', content: modular ? MODULAR_SYSTEM_PROMPTS[platform] : SYSTEM_PROMPTS[platform] },
         { role: 'user', content: source },
       ],
     },
@@ -160,6 +201,36 @@ async function requestCompletion(
 }
 
 /**
+ * Safely extracts the <vibe_meta> block from the LLM response, stripping
+ * inner markdown fences and parsing the JSON. It returns the cleaned code
+ * with the meta block entirely removed.
+ */
+function extractHardwareMetadata(llmResponse: string): { metadata: any; cleanedCode: string } {
+  let metadata: any = { components: [], libraries: [] };
+  let cleanedCode = llmResponse;
+
+  const metaRegex = /<vibe_meta>([\s\S]*?)<\/vibe_meta>/i;
+  const match = cleanedCode.match(metaRegex);
+  if (match) {
+    let rawJson = match[1].trim();
+    // Strip possible markdown around JSON
+    rawJson = rawJson
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    try {
+      metadata = JSON.parse(rawJson);
+    } catch (e) {
+      console.error('Failed to parse vibe_meta JSON', e);
+    }
+    // Remove the entire block from the code
+    cleanedCode = cleanedCode.replace(metaRegex, '').trim();
+  }
+
+  return { metadata, cleanedCode };
+}
+
+/**
  * Strips accidental markdown code fences that models sometimes wrap around
  * their output (e.g. ```c … ```, ```cpp … ```, ```ino … ```).
  */
@@ -168,6 +239,35 @@ function stripMarkdownFences(code: string): string {
     .replace(/^```(?:c|cpp|ino)?\n?/i, '')
     .replace(/\n?```$/i, '')
     .trim();
+}
+
+/**
+ * Parses the LLM response for modular multi-file output enclosed in
+ * <vibe_files> tags with `--- FILE: <path> ---` delimiters.
+ *
+ * @returns An array of file descriptors, or `null` if no modular block was found.
+ */
+function parseVibeFiles(
+  raw: string,
+): Array<{ relativePath: string; content: string }> | null {
+  const wrapperMatch = raw.match(/<vibe_files>([\s\S]*?)<\/vibe_files>/i);
+  if (!wrapperMatch) {
+    return null;
+  }
+
+  const body = wrapperMatch[1];
+  const fileRegex = /---\s*FILE:\s*(.+?)\s*---\n((?:[\s\S](?!---\s*FILE:))*)/gi;
+  const files: Array<{ relativePath: string; content: string }> = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = fileRegex.exec(body)) !== null) {
+    files.push({
+      relativePath: match[1].trim(),
+      content: match[2].trim(),
+    });
+  }
+
+  return files.length > 0 ? files : null;
 }
 
 /**
@@ -180,6 +280,7 @@ async function writeAndOpenOutputFile(
   vibeFilePath: string,
   content: string,
   platform: TargetPlatform,
+  metadata?: { libraries?: string[] }
 ): Promise<string> {
   const dir = path.dirname(vibeFilePath);
   const baseName = path.basename(vibeFilePath, '.vibe');
@@ -189,10 +290,150 @@ async function writeAndOpenOutputFile(
 
   await fs.writeFile(outFilePath, content, 'utf-8');
 
+  // Generate platformio.ini
+  if (platform !== 'Standard C (Generic)') {
+    const pioFile = path.join(dir, 'platformio.ini');
+    let pioContent = '';
+    
+    if (platform === 'ESP32 (Arduino Framework)') {
+      pioContent += '[env:esp32dev]\nplatform = espressif32\nboard = esp32dev\nframework = arduino\n';
+    } else if (platform === 'Arduino Uno/Nano (AVR)') {
+      pioContent += '[env:uno]\nplatform = atmelavr\nboard = uno\nframework = arduino\n';
+    }
+
+    if (metadata && metadata.libraries && metadata.libraries.length > 0) {
+      pioContent += 'lib_deps =\n';
+      for (const lib of metadata.libraries) {
+        pioContent += `  ${lib}\n`;
+      }
+    }
+
+    await fs.writeFile(pioFile, pioContent, 'utf-8');
+  }
+
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(outFilePath));
   await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 
   return outFileName;
+}
+
+/**
+ * Creates a PlatformIO-compatible project folder from parsed modular files.
+ * The project folder is named after the `.vibe` file and placed beside it.
+ *
+ * @returns The absolute path to the created project directory.
+ */
+async function writeModularProject(
+  vibeFilePath: string,
+  files: Array<{ relativePath: string; content: string }>,
+  platform: TargetPlatform,
+  metadata?: { libraries?: string[] },
+): Promise<string> {
+  const dir = path.dirname(vibeFilePath);
+  const baseName = path.basename(vibeFilePath, '.vibe');
+  const projectDir = path.join(dir, baseName);
+
+  // Create project root
+  await fs.mkdir(projectDir, { recursive: true });
+
+  // Write each module file into its correct subdirectory
+  for (const file of files) {
+    const filePath = path.join(projectDir, file.relativePath);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, file.content, 'utf-8');
+  }
+
+  // Generate platformio.ini in the project root
+  if (platform !== 'Standard C (Generic)') {
+    let pioContent = '';
+
+    if (platform === 'ESP32 (Arduino Framework)') {
+      pioContent += '[env:esp32dev]\nplatform = espressif32\nboard = esp32dev\nframework = arduino\n';
+    } else if (platform === 'Arduino Uno/Nano (AVR)') {
+      pioContent += '[env:uno]\nplatform = atmelavr\nboard = uno\nframework = arduino\n';
+    }
+
+    if (metadata && metadata.libraries && metadata.libraries.length > 0) {
+      pioContent += 'lib_deps =\n';
+      for (const lib of metadata.libraries) {
+        pioContent += `  ${lib}\n`;
+      }
+    }
+
+    await fs.writeFile(path.join(projectDir, 'platformio.ini'), pioContent, 'utf-8');
+  }
+
+  // Open the main entry file in a side-by-side editor
+  const mainFile = files.find((f) => f.relativePath.includes('main.cpp'));
+  if (mainFile) {
+    const doc = await vscode.workspace.openTextDocument(
+      vscode.Uri.file(path.join(projectDir, mainFile.relativePath)),
+    );
+    await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+  }
+
+  return projectDir;
+}
+
+/**
+ * Sends compiled code and vibe source to the LLM to generate a professional
+ * SPECIFICATION.md engineering document, then writes it to the project root.
+ */
+async function generateSpecification(
+  vibeSource: string,
+  compiledCode: string,
+  config: VibeCConfig,
+  projectDir: string,
+): Promise<void> {
+  const specPrompt =
+    'You are a senior embedded systems documentation engineer. ' +
+    'Analyze the following generated hardware architecture and code, and produce a professional, comprehensive engineering document in Markdown format. ' +
+    'The document MUST include the following sections:\n' +
+    '1. **System Architecture Overview** — High-level description of the system, its purpose, and design rationale.\n' +
+    '2. **Hardware Pinout Wiring Matrix** — A clean Markdown table mapping every component pin to its target MCU pin, including voltage levels and signal type.\n' +
+    '3. **API/Function Reference** — Doxygen-style documentation for every class, method, and significant function in the codebase.\n' +
+    '4. **Dependencies and Library Requirements** — List all external libraries, their versions (if known), and what they provide.\n\n' +
+    'Output ONLY the Markdown document content. Do NOT wrap it in code fences.';
+
+  const userContent =
+    '## Original Vibe Source\n```\n' + vibeSource + '\n```\n\n' +
+    '## Generated Code\n```cpp\n' + compiledCode + '\n```';
+
+  const response = await axios.post<ChatCompletionResponse>(
+    config.apiUrl,
+    {
+      model: config.modelName,
+      messages: [
+        { role: 'system', content: specPrompt },
+        { role: 'user', content: userContent },
+      ],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 120_000,
+    },
+  );
+
+  let specContent = response.data?.choices?.[0]?.message?.content ?? '';
+  specContent = stripMarkdownFences(specContent);
+
+  if (!specContent.trim()) {
+    vscode.window.showErrorMessage(`${EXTENSION_ID}: Failed to generate specification — empty response.`);
+    return;
+  }
+
+  const specPath = path.join(projectDir, 'SPECIFICATION.md');
+  await fs.mkdir(path.dirname(specPath), { recursive: true });
+  await fs.writeFile(specPath, specContent, 'utf-8');
+
+  vscode.window.showInformationMessage('System specification document generated successfully!');
+
+  // Open the spec file in a side-by-side editor
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(specPath));
+  await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 }
 
 // ---------------------------------------------------------------------------
@@ -235,6 +476,7 @@ function handleCompilationError(error: unknown): string {
 async function compileVibeFile(
   platformArg: string,
   sidebar: VibeCSidebarProvider,
+  codeStructure: string = 'single',
 ): Promise<void> {
   // Normalise the platform, falling back to Standard C if something unexpected arrives
   const platform: TargetPlatform = VALID_PLATFORMS.has(platformArg)
@@ -295,7 +537,11 @@ async function compileVibeFile(
       progress.report({ message: `Compiling with ${platform}…` });
 
       try {
-        const rawCode = await requestCompletion(vibeSource, config, platform);
+        // Choose prompt set based on code structure mode
+        const isModular = codeStructure === 'modular' && platform !== 'Standard C (Generic)';
+        const rawCode = isModular
+          ? await requestCompletion(vibeSource, config, platform, true)
+          : await requestCompletion(vibeSource, config, platform);
 
         if (!rawCode.trim()) {
           const msg = 'Received an empty response from the API. Please try again.';
@@ -306,14 +552,67 @@ async function compileVibeFile(
 
         progress.report({ message: 'Writing output file…' });
 
-        const cleanCode = stripMarkdownFences(rawCode);
-        const outputName = await writeAndOpenOutputFile(filePath, cleanCode, platform);
+        // --- Extract hardware map JSON ---------------------------------------
+        let hardwareMapJson: any = { components: [], libraries: [] };
+        let codeWithoutMeta = rawCode;
 
-        const msg = `Compiled → ${outputName}`;
-        vscode.window.showInformationMessage(
-          `${EXTENSION_ID}: ${msg} [${platform}]`,
-        );
-        sidebar.sendStatus('success', msg);
+        if (platform !== 'Standard C (Generic)') {
+          const extracted = extractHardwareMetadata(rawCode);
+          hardwareMapJson = extracted.metadata;
+          codeWithoutMeta = extracted.cleanedCode;
+        }
+
+        let cleanCode = stripMarkdownFences(codeWithoutMeta);
+
+        sidebar.sendHardwareMap(hardwareMapJson);
+        sidebar.setLastCompiledCode(cleanCode);
+
+        // --- Modular or single-file output -----------------------------------
+        if (isModular) {
+          const parsedFiles = parseVibeFiles(cleanCode);
+          if (parsedFiles && parsedFiles.length > 0) {
+            // Strip the <vibe_files> wrapper for the stored "clean code"
+            const codeWithoutWrapper = cleanCode
+              .replace(/<vibe_files>[\s\S]*?<\/vibe_files>/i, '')
+              .trim();
+            sidebar.setLastCompiledCode(codeWithoutWrapper || cleanCode);
+
+            const projectDir = await writeModularProject(
+              filePath, parsedFiles, platform, hardwareMapJson,
+            );
+            sidebar.setLastProjectDir(projectDir);
+
+            const folderName = path.basename(projectDir);
+            const msg = `Compiled → ${folderName}/ (${parsedFiles.length} modules)`;
+            vscode.window.showInformationMessage(
+              `${EXTENSION_ID}: ${msg} [${platform}]`,
+            );
+            sidebar.sendStatus('success', msg);
+          } else {
+            // Fallback: modular parse failed, write as single file
+            const outputName = await writeAndOpenOutputFile(
+              filePath, cleanCode, platform, hardwareMapJson,
+            );
+            sidebar.setLastProjectDir(path.dirname(filePath));
+
+            const msg = `Compiled → ${outputName} (modular parse failed, single-file fallback)`;
+            vscode.window.showInformationMessage(
+              `${EXTENSION_ID}: ${msg} [${platform}]`,
+            );
+            sidebar.sendStatus('success', msg);
+          }
+        } else {
+          const outputName = await writeAndOpenOutputFile(
+            filePath, cleanCode, platform, hardwareMapJson,
+          );
+          sidebar.setLastProjectDir(path.dirname(filePath));
+
+          const msg = `Compiled → ${outputName}`;
+          vscode.window.showInformationMessage(
+            `${EXTENSION_ID}: ${msg} [${platform}]`,
+          );
+          sidebar.sendStatus('success', msg);
+        }
       } catch (error: unknown) {
         const msg = handleCompilationError(error);
         sidebar.sendStatus('error', msg);
@@ -345,9 +644,67 @@ export function activate(context: vscode.ExtensionContext): void {
       'vibec.compile',
       (platformArg?: string) => {
         const platform = platformArg ?? sidebarProvider.getSelectedPlatform();
-        return compileVibeFile(platform, sidebarProvider);
+        const codeStructure = sidebarProvider.getSelectedCodeStructure();
+        return compileVibeFile(platform, sidebarProvider, codeStructure);
       },
     ),
+  );
+
+  // 3. Register the generate-docs command.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibec.generateDocs', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage(
+          `${EXTENSION_ID}: No active editor found. Please open a .vibe file.`,
+        );
+        return;
+      }
+
+      const config = await resolveConfig();
+      if (!config) {
+        return;
+      }
+
+      const vibeSource = editor.document.getText();
+      const compiledCode = sidebarProvider.getLastCompiledCode();
+      if (!compiledCode) {
+        vscode.window.showWarningMessage(
+          `${EXTENSION_ID}: No compiled code available. Compile a .vibe file first.`,
+        );
+        return;
+      }
+
+      const projectDir = sidebarProvider.getLastProjectDir();
+      if (!projectDir) {
+        vscode.window.showWarningMessage(
+          `${EXTENSION_ID}: No project directory available. Compile a .vibe file first.`,
+        );
+        return;
+      }
+
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `${EXTENSION_ID}`,
+          cancellable: false,
+        },
+        async (progress) => {
+          progress.report({ message: 'Generating system specification…' });
+          try {
+            await generateSpecification(
+              vibeSource,
+              compiledCode,
+              config,
+              projectDir,
+            );
+          } catch (error: unknown) {
+            handleCompilationError(error);
+          }
+        },
+      );
+    }),
   );
 }
 

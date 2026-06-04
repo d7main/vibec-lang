@@ -21,6 +21,10 @@
         "command": "vibec.compile",
         "title": "vibeC: Compile Current Vibe",
         "icon": "$(zap)"
+      },
+      {
+        "command": "vibec.generateDocs",
+        "title": "vibeC: Generate Tech Spec"
       }
     ],
     "viewsContainers": {
