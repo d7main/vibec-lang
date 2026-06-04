@@ -93,46 +93,38 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
       font-family: var(--vscode-font-family, system-ui, sans-serif);
       font-size: var(--vscode-font-size, 13px);
       color: var(--vscode-foreground);
-      background: transparent;
-      line-height: 1.45;
+      background: var(--vscode-sideBar-background);
+      line-height: 1.4;
+      padding: 12px 16px;
     }
 
-    /* ── Layout ───────────────────────────────────────────────────────── */
-    .container { padding: 14px 16px 20px; }
-
+    /* ── Header ───────────────────────────────────────────────────────── */
     .header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding-bottom: 14px;
-      margin-bottom: 18px;
-      border-bottom: 1px solid var(--vscode-panel-border,
-                                    var(--vscode-widget-border, rgba(128,128,128,.25)));
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128,128,128,.25)));
     }
-    .header-icon { font-size: 18px; line-height: 1; }
     .header-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--vscode-foreground);
-    }
-
-    /* ── Sections ─────────────────────────────────────────────────────── */
-    .section { margin-bottom: 20px; }
-    .section-label {
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--vscode-descriptionForeground);
-      margin-bottom: 8px;
+      color: var(--vscode-sideBarSectionHeader-foreground);
+    }
+
+    /* ── Sections ─────────────────────────────────────────────────────── */
+    .section { margin-bottom: 16px; }
+    .section-label {
+      font-size: 11px;
+      font-weight: normal;
+      color: var(--vscode-foreground);
+      margin-bottom: 6px;
+      display: block;
     }
 
     /* ── Platform select ──────────────────────────────────────────────── */
     .platform-select {
       width: 100%;
-      padding: 6px 8px;
+      padding: 4px;
       font-family: var(--vscode-font-family, system-ui);
       font-size: var(--vscode-font-size, 13px);
       color: var(--vscode-dropdown-foreground);
@@ -147,179 +139,136 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
       border-color: var(--vscode-focusBorder);
     }
 
-    /* ── Platform info chip ───────────────────────────────────────────── */
+    /* ── Platform info ────────────────────────────────────────────────── */
     .platform-info {
-      margin-top: 8px;
-      padding: 8px 10px;
-      font-size: 11px;
-      line-height: 1.55;
+      margin-top: 6px;
+      font-size: 12px;
       color: var(--vscode-descriptionForeground);
-      background: var(--vscode-textBlockQuote-background, rgba(128,128,128,.08));
-      border-left: 3px solid var(--vscode-textBlockQuote-border,
-                                  var(--vscode-focusBorder));
-      border-radius: 0 3px 3px 0;
-    }
-    .output-badge {
-      display: inline-block;
-      padding: 1px 5px;
-      font-size: 10px;
-      font-weight: 700;
-      font-family: var(--vscode-editor-font-family, monospace);
-      color: var(--vscode-badge-foreground);
-      background: var(--vscode-badge-background);
-      border-radius: 3px;
-      vertical-align: middle;
     }
 
     /* ── Compile button ───────────────────────────────────────────────── */
     .compile-btn {
       width: 100%;
-      padding: 8px 14px;
+      padding: 4px 8px;
       font-family: var(--vscode-font-family, system-ui);
-      font-size: 13px;
-      font-weight: 600;
+      font-size: var(--vscode-font-size, 13px);
+      font-weight: normal;
       color: var(--vscode-button-foreground);
       background: var(--vscode-button-background);
-      border: none;
+      border: 1px solid transparent;
       border-radius: 2px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: background-color .15s ease, transform .08s ease;
-      user-select: none;
+      display: block;
+      text-align: center;
+      transition: background-color .1s;
     }
     .compile-btn:hover:not(:disabled) {
       background: var(--vscode-button-hoverBackground);
     }
-    .compile-btn:active:not(:disabled) {
-      transform: scale(.98);
-    }
     .compile-btn:disabled {
-      opacity: .55;
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
     /* ── Divider ──────────────────────────────────────────────────────── */
     .divider {
       height: 1px;
-      background: var(--vscode-panel-border,
-                      var(--vscode-widget-border, rgba(128,128,128,.25)));
-      margin: 18px 0;
+      background: var(--vscode-panel-border, var(--vscode-widget-border, rgba(128,128,128,.25)));
+      margin: 16px 0;
     }
 
     /* ── Status bar ───────────────────────────────────────────────────── */
     .status-bar {
-      padding: 8px 10px;
       font-size: 12px;
-      border-radius: 3px;
       display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 32px;
-      transition: background-color .2s ease, color .2s ease;
+      align-items: flex-start;
+      gap: 6px;
+      min-height: 20px;
+      color: var(--vscode-descriptionForeground);
     }
     .status-bar.idle {
       color: var(--vscode-descriptionForeground);
     }
     .status-bar.compiling {
-      color: var(--vscode-charts-blue, #3794ff);
-      background: var(--vscode-textBlockQuote-background, rgba(55,148,255,.08));
+      color: var(--vscode-foreground);
     }
     .status-bar.success {
-      color: var(--vscode-charts-green, #89d185);
-      background: var(--vscode-textBlockQuote-background, rgba(137,209,133,.08));
+      color: var(--vscode-foreground);
     }
     .status-bar.error {
-      color: var(--vscode-errorForeground, #f48771);
-      background: var(--vscode-inputValidation-errorBackground, rgba(244,135,113,.08));
+      color: var(--vscode-errorForeground);
     }
 
-    /* ── Spinner ──────────────────────────────────────────────────────── */
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid transparent;
-      border-top-color: currentColor;
-      border-radius: 50%;
-      animation: spin .75s linear infinite;
-      flex-shrink: 0;
+    /* ── Icons (simulated via text/emoji for enterprise look) ─────────── */
+    .status-icon {
+      font-family: var(--vscode-font-family);
+      font-size: 12px;
+      line-height: 1.4;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-bar.compiling .status-icon::before { content: "↻"; display: inline-block; animation: spin 2s linear infinite; }
+    .status-bar.success .status-icon::before { content: "✓"; }
+    .status-bar.error .status-icon::before { content: "⚠"; }
+    .status-bar.idle .status-icon::before { content: "•"; }
 
-    .status-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">EMBEDDED TARGET CONFIGURATION</div>
+  </div>
 
-    <!-- Header -->
-    <div class="header">
-      <span class="header-icon">⚡</span>
-      <span class="header-title">vibeC Compiler</span>
+  <!-- Target platform -->
+  <div class="section">
+    <label class="section-label" for="platformSelect">Target Platform</label>
+    <select id="platformSelect" class="platform-select">
+      <option value="ESP32 (Arduino Framework)">ESP32 (Arduino Framework)</option>
+      <option value="Arduino Uno/Nano (AVR)">Arduino Uno/Nano (AVR)</option>
+      <option value="Standard C (Generic)">Standard C (Generic)</option>
+    </select>
+    <div id="platformInfo" class="platform-info"></div>
+  </div>
+
+  <!-- Compile -->
+  <div class="section">
+    <button id="compileBtn" class="compile-btn">Compile System Architecture</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Status -->
+  <div class="section">
+    <label class="section-label">Status</label>
+    <div id="statusBar" class="status-bar idle">
+      <span class="status-icon"></span>
+      <span id="statusText">Ready</span>
     </div>
-
-    <!-- Target platform -->
-    <div class="section">
-      <div class="section-label">Target Platform</div>
-      <select id="platformSelect" class="platform-select">
-        <option value="ESP32 (Arduino Framework)">ESP32 (Arduino Framework)</option>
-        <option value="Arduino Uno/Nano (AVR)">Arduino Uno/Nano (AVR)</option>
-        <option value="Standard C (Generic)">Standard C (Generic)</option>
-      </select>
-      <div id="platformInfo" class="platform-info"></div>
-    </div>
-
-    <!-- Compile -->
-    <div class="section">
-      <button id="compileBtn" class="compile-btn">⚡ Compile Active File</button>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Status -->
-    <div class="section">
-      <div class="section-label">Status</div>
-      <div id="statusBar" class="status-bar idle">
-        <span class="status-dot"></span>
-        <span id="statusText">Ready</span>
-      </div>
-    </div>
-
   </div>
 
   <script nonce="${nonce}">
-    // Acquire the VS Code API handle (one-time call)
     const vscode = acquireVsCodeApi();
 
     const platformSelect = document.getElementById('platformSelect');
     const platformInfo   = document.getElementById('platformInfo');
     const compileBtn     = document.getElementById('compileBtn');
     const statusBar      = document.getElementById('statusBar');
+    const statusText     = document.getElementById('statusText');
 
-    // ── Platform descriptions ─────────────────────────────────────────
     const INFO = {
       'ESP32 (Arduino Framework)':
-        'ESP32 · Wi-Fi / BLE · Arduino C++ · Output: <span class="output-badge">.ino</span>',
+        'ESP32 · Wi-Fi / BLE · Arduino C++ · Output: .ino',
       'Arduino Uno/Nano (AVR)':
-        'ATmega328P · 2 KB SRAM · Low-memory optimized · Output: <span class="output-badge">.ino</span>',
+        'ATmega328P · 2 KB SRAM · Low-memory optimized · Output: .ino',
       'Standard C (Generic)':
-        'Generic C · Cross-platform · Standard libraries · Output: <span class="output-badge">.c</span>',
+        'Generic C · Cross-platform · Standard libraries · Output: .c',
     };
 
     function updateInfo() {
-      platformInfo.innerHTML = INFO[platformSelect.value] || '';
+      platformInfo.textContent = INFO[platformSelect.value] || '';
     }
     updateInfo();
 
-    // ── Events → extension ────────────────────────────────────────────
     platformSelect.addEventListener('change', function () {
       updateInfo();
       vscode.postMessage({ type: 'platformChanged', platform: platformSelect.value });
@@ -329,13 +278,6 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
       vscode.postMessage({ type: 'compile', platform: platformSelect.value });
     });
 
-    // ── Events ← extension ────────────────────────────────────────────
-    function escapeHtml(text) {
-      var el = document.createElement('span');
-      el.textContent = text;
-      return el.innerHTML;
-    }
-
     window.addEventListener('message', function (event) {
       var data = event.data;
       if (data.type !== 'status') { return; }
@@ -343,17 +285,13 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
       statusBar.className = 'status-bar ' + data.state;
 
       if (data.state === 'compiling') {
-        statusBar.innerHTML =
-          '<span class="spinner"></span>' +
-          '<span>' + escapeHtml(data.message) + '</span>';
+        statusText.textContent = data.message;
         compileBtn.disabled = true;
-        compileBtn.textContent = '⏳ Compiling…';
+        compileBtn.textContent = 'Compiling...';
       } else {
-        statusBar.innerHTML =
-          '<span class="status-dot"></span>' +
-          '<span>' + escapeHtml(data.message) + '</span>';
+        statusText.textContent = data.message;
         compileBtn.disabled = false;
-        compileBtn.textContent = '⚡ Compile Active File';
+        compileBtn.textContent = 'Compile System Architecture';
       }
     });
   </script>
