@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+## vibeC v1.1.0: Hardware-Aware Generator & Multi-File Refactoring Agent
 README.md
 # vibeC
 
