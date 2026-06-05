@@ -10,22 +10,25 @@ Unlike standard software-focused AI assistants, vibeC bridges natural language r
 
 The system pipeline structures development into sequential verification and synchronization layers:
 
-[ .vibe Source Specification ] ──> [ Hardware Configuration Map Verification ]
-│
-▼
-[ LLM Generation Pipeline ]
-│
-┌────────────────────────────────────┴────────────────────────────────────┐
-▼                                                                         ▼
-[ Single File Mode ]                                                   [ PlatformIO Native Mode ]
-(Monolithic .ino / .c)                                                  (Modular OOP C++ Structure)
-│
-▼
-[ Active FileSystemWatcher ]
-│
-▼
-[ vibeC AI Agent Terminal ]
-(Isolated Project Refactoring)
+[ .vibe Source Specification ]
+                                │
+                                ▼
+            [ Hardware Configuration Map Verification ]
+                                │
+                                ▼
+                   [ LLM Generation Pipeline ]
+                                │
+        ┌───────────────────────┴───────────────────────┐
+        ▼                                               ▼
+[ Single File Mode ]                        [ PlatformIO Native Mode ]
+(Monolithic .ino / .c)                     (Modular OOP C++ Structure)
+                                                        │
+                                                        ▼
+                                           [ Active FileSystemWatcher ]
+                                                        │
+                                                        ▼
+                                           [ vibeC AI Agent Terminal ]
+                                          (Isolated Project Refactoring)
 
 
 ---
