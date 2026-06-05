@@ -8,7 +8,7 @@ export type StatusState = 'idle' | 'compiling' | 'success' | 'error';
 
 /** Messages sent FROM the webview TO the extension. */
 export interface SidebarMessage {
-  type: 'compile' | 'platformChanged' | 'copyCode' | 'codeStructureChanged' | 'generateDocs';
+  type: 'compile' | 'platformChanged' | 'copyCode' | 'codeStructureChanged' | 'generateDocs' | 'triggerAgentSync';
   platform?: string;
   codeStructure?: string;
 }
@@ -25,6 +25,8 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
   private _lastCompiledCode = '';
   private _selectedCodeStructure = 'single';
   private _lastProjectDir = '';
+
+  public onAgentSync?: () => void;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -66,6 +68,16 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
   /** Stores the last project directory for documentation generation. */
   public setLastProjectDir(dir: string): void {
     this._lastProjectDir = dir;
+  }
+
+  /** Push an agent state change to the sidebar UI. */
+  public postAgentState(state: string, details?: string): void {
+    this._view?.webview.postMessage({ type: 'agentStateChanged', state, details });
+  }
+
+  /** Append log text to the sidebar UI's agent console. */
+  public postAgentLog(message: string): void {
+    this._view?.webview.postMessage({ type: 'agentLogAppend', message });
   }
 
   // -------------------------------------------------------------------------
@@ -120,8 +132,25 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
         case 'generateDocs':
           vscode.commands.executeCommand('vibec.generateDocs');
           break;
+
+        case 'triggerAgentSync':
+          if (this.onAgentSync) {
+            this.onAgentSync();
+          }
+          break;
       }
     });
+
+    // Post initial agent state if we have an active project
+    if (this._lastProjectDir) {
+      setTimeout(() => {
+        this.postAgentState('idle');
+      }, 100);
+    } else {
+      setTimeout(() => {
+        this.postAgentState('disabled');
+      }, 100);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -376,6 +405,160 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
     .status-bar.idle .status-icon::before { content: "•"; }
 
     @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* ── vibeC AI Agent Terminal ───────────────────────────────────────── */
+    .agent-box {
+      background: var(--vscode-welcomePage-tile-background, rgba(128,128,128,0.08));
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25));
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .agent-status-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-badge {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: background-color 0.3s, box-shadow 0.3s;
+    }
+    .status-badge.idle {
+      background-color: var(--vscode-testing-iconPassedColor, #4ec9b0);
+      box-shadow: 0 0 4px var(--vscode-testing-iconPassedColor, #4ec9b0);
+    }
+    .status-badge.pending_sync {
+      background-color: var(--vscode-inputValidation-warningBorder, #cca700);
+      box-shadow: 0 0 6px var(--vscode-inputValidation-warningBorder, #cca700);
+      animation: pulse-amber 1.2s infinite ease-in-out;
+    }
+    .status-badge.syncing {
+      background-color: var(--vscode-progressBar-background, #0e7090);
+      box-shadow: 0 0 6px var(--vscode-progressBar-background, #0e7090);
+      animation: pulse-syncing 0.8s infinite ease-in-out;
+    }
+    .status-badge.disabled {
+      background-color: var(--vscode-descriptionForeground, #808080);
+      box-shadow: none;
+    }
+    
+    @keyframes pulse-amber {
+      0% {
+        opacity: 0.4;
+        box-shadow: 0 0 2px rgba(204, 167, 0, 0.4);
+      }
+      50% {
+        opacity: 1;
+        box-shadow: 0 0 8px rgba(204, 167, 0, 0.9);
+      }
+      100% {
+        opacity: 0.4;
+        box-shadow: 0 0 2px rgba(204, 167, 0, 0.4);
+      }
+    }
+    @keyframes pulse-syncing {
+      0% {
+        opacity: 0.5;
+        transform: scale(0.9);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.15);
+      }
+      100% {
+        opacity: 0.5;
+        transform: scale(0.9);
+      }
+    }
+
+    .agent-status-text {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .agent-log {
+      background: var(--vscode-textCodeBlock-background, #1e1e1e);
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.15));
+      border-radius: 4px;
+      height: 100px;
+      overflow-y: auto;
+      font-family: var(--vscode-editor-font-family, 'Courier New', Courier, monospace);
+      font-size: 10.5px;
+      color: #b5cea8;
+      padding: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .agent-log .log-entry {
+      margin-bottom: 4px;
+      line-height: 1.3;
+      border-left: 2px solid rgba(181, 206, 168, 0.3);
+      padding-left: 4px;
+    }
+    .agent-log .log-entry.info {
+      color: #9cdcfe;
+      border-left-color: rgba(156, 220, 254, 0.3);
+    }
+    .agent-log .log-entry.warn {
+      color: #ce9178;
+      border-left-color: rgba(206, 145, 120, 0.3);
+    }
+    .agent-log .log-entry.error {
+      color: #f48771;
+      border-left-color: rgba(244, 135, 113, 0.5);
+    }
+    
+    .agent-sync-btn {
+      width: 100%;
+      padding: 5px 10px;
+      font-family: var(--vscode-font-family, system-ui);
+      font-size: var(--vscode-font-size, 13px);
+      font-weight: 600;
+      color: var(--vscode-button-foreground);
+      background: var(--vscode-button-background);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      display: block;
+      text-align: center;
+      transition: background-color .15s, opacity 0.15s, transform 0.1s;
+    }
+    .agent-sync-btn:hover:not(:disabled) {
+      background: var(--vscode-button-hoverBackground);
+      transform: translateY(-1px);
+    }
+    .agent-sync-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .agent-sync-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .agent-sync-btn.pending {
+      background: linear-gradient(135deg, #cca700, #b58b00);
+      color: #ffffff;
+      animation: pulse-button 1.5s infinite;
+    }
+    @keyframes pulse-button {
+      0% { box-shadow: 0 0 0 0 rgba(204, 167, 0, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(204, 167, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(204, 167, 0, 0); }
+    }
   </style>
 </head>
 <body>
@@ -401,6 +584,7 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
     <select id="codeStructureSelect" class="platform-select">
       <option value="single">Single File (.ino / .c)</option>
       <option value="modular">Modular C++ (Production Split)</option>
+      <option value="pio_native">PlatformIO Native (Professional OOP)</option>
     </select>
   </div>
 
@@ -418,6 +602,23 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
     <div class="section-label">HARDWARE CONFIGURATION MAP</div>
     <div id="hardwareMapContainer" class="hw-container">
       <div class="hw-placeholder">No active hardware map. Compile a .vibe file to map peripherals.</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- vibeC AI Agent Terminal -->
+  <div class="section">
+    <div class="section-label">vibeC AI Agent Terminal</div>
+    <div class="agent-box">
+      <div class="agent-header">
+        <div class="agent-status-container">
+          <span class="status-badge disabled" id="agentStatusBadge"></span>
+          <span id="agentStatus" class="agent-status-text">Disabled</span>
+        </div>
+      </div>
+      <div id="agentLog" class="agent-log"></div>
+      <button id="agentSyncBtn" class="agent-sync-btn" disabled>Sync Project</button>
     </div>
   </div>
 
@@ -444,6 +645,11 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
     const hwContainer    = document.getElementById('hardwareMapContainer');
     const codeStructureSelect = document.getElementById('codeStructureSelect');
     const generateDocsBtn = document.getElementById('generateDocsBtn');
+
+    const agentSyncBtn   = document.getElementById('agentSyncBtn');
+    const agentStatusBadge = document.getElementById('agentStatusBadge');
+    const agentStatus      = document.getElementById('agentStatus');
+    const agentLog         = document.getElementById('agentLog');
 
     const INFO = {
       'ESP32 (Arduino Framework)':
@@ -572,11 +778,62 @@ export class VibeCSidebarProvider implements vscode.WebviewViewProvider {
       vscode.postMessage({ type: 'generateDocs' });
     });
 
+    agentSyncBtn.addEventListener('click', function () {
+      vscode.postMessage({ type: 'triggerAgentSync' });
+    });
+
     window.addEventListener('message', function (event) {
       var data = event.data;
 
       if (data.type === 'updateHardwareMap') {
         renderHardwareMap(data.data, data.platform);
+        return;
+      }
+
+      if (data.type === 'agentStateChanged') {
+        agentStatusBadge.className = 'status-badge ' + data.state;
+        
+        if (data.state === 'idle') {
+          agentStatus.textContent = 'Idle';
+          agentSyncBtn.disabled = false;
+          agentSyncBtn.textContent = 'Sync Project';
+          agentSyncBtn.classList.remove('pending');
+        } else if (data.state === 'pending_sync') {
+          agentStatus.textContent = 'Pending Sync (' + (data.details || 'modified') + ')';
+          agentSyncBtn.disabled = false;
+          agentSyncBtn.textContent = 'Run Sync';
+          agentSyncBtn.classList.add('pending');
+        } else if (data.state === 'syncing') {
+          agentStatus.textContent = 'Syncing...';
+          agentSyncBtn.disabled = true;
+          agentSyncBtn.textContent = 'Syncing...';
+          agentSyncBtn.classList.remove('pending');
+          agentLog.innerHTML = '<div class="log-entry info">=== Starting Project Sync ===</div>';
+        } else if (data.state === 'disabled') {
+          agentStatus.textContent = 'Disabled';
+          agentSyncBtn.disabled = true;
+          agentSyncBtn.textContent = 'Sync Project';
+          agentSyncBtn.classList.remove('pending');
+        }
+        return;
+      }
+
+      if (data.type === 'agentLogAppend') {
+        var entry = document.createElement('div');
+        entry.className = 'log-entry';
+        
+        var lowerMsg = data.message.toLowerCase();
+        if (lowerMsg.includes('error') || lowerMsg.includes('fail')) {
+          entry.classList.add('error');
+        } else if (lowerMsg.includes('warning') || lowerMsg.includes('warn')) {
+          entry.classList.add('warn');
+        } else if (lowerMsg.includes('start') || lowerMsg.includes('complete') || lowerMsg.includes('success')) {
+          entry.classList.add('info');
+        }
+        
+        entry.textContent = data.message;
+        agentLog.appendChild(entry);
+        agentLog.scrollTop = agentLog.scrollHeight;
         return;
       }
 

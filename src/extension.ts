@@ -5,6 +5,12 @@ import axios, { AxiosError } from 'axios';
 import { VibeCSidebarProvider } from './vibeCSidebarProvider';
 
 // ---------------------------------------------------------------------------
+// Module state
+// ---------------------------------------------------------------------------
+let activeProjectWatcher: vscode.FileSystemWatcher | undefined;
+let ignoreWatcher = false;
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -84,6 +90,105 @@ const MODULAR_SYSTEM_PROMPTS: Record<TargetPlatform, string> = {
     'The JSON structure inside <vibe_meta> must look exactly like this: { "components": [ { "name": "Button", "pin_name": "Data", "target": "GPIO 4" } ], "libraries": [] }. ' +
     'Output ONLY the <vibe_files> block followed by the <vibe_meta> block — no markdown wrappers, no explanations. ' +
     'CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.',
+
+  'Standard C (Generic)':
+    'You are the vibeC compiler. Translate the user\'s high-level vibe instructions ' +
+    'into pure, valid, and fully-functional C source code. ' +
+    'Output ONLY clean C code, no markdown wrappers, no explanations.',
+};
+
+const PIO_NATIVE_SYSTEM_PROMPTS: Record<TargetPlatform, string> = {
+  'ESP32 (Arduino Framework)':
+    `You are an elite embedded systems architect specializing in industrial-grade ESP32/Arduino C++ development within the PlatformIO ecosystem.
+CRITICAL INSTRUCTION: You must split the entire solution into clean, production-ready, object-oriented modules (header and source pairs) and separate them using strict file delimiters inside a single <vibe_files> block. 
+
+DO NOT use general markdown code fences (like \`\`\`) around the files. Use ONLY the explicit file delimiters.
+
+Follow this EXACT output structure and generate ALL referenced files (main, engine headers, engine source):
+
+<vibe_files>
+--- FILE: src/main.cpp ---
+#include <Arduino.h>
+#include "AppEngine.h"
+
+AppEngine engine;
+
+void setup() {
+    engine.begin();
+}
+
+void loop() {
+    engine.update();
+}
+--- FILE: include/AppEngine.h ---
+#pragma once
+#include <Arduino.h>
+
+class AppEngine {
+public:
+    AppEngine();
+    void begin();
+    void update();
+};
+--- FILE: src/AppEngine.cpp ---
+#include "AppEngine.h"
+
+AppEngine::AppEngine() {}
+void AppEngine::begin() {
+    Serial.begin(115200);
+}
+void AppEngine::update() {
+    // core systems loop
+}
+</vibe_files>
+
+CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.`,
+
+  'Arduino Uno/Nano (AVR)':
+    `You are an elite embedded systems architect specializing in industrial-grade ESP32/Arduino C++ development within the PlatformIO ecosystem.
+CRITICAL INSTRUCTION: You must split the entire solution into clean, production-ready, object-oriented modules (header and source pairs) and separate them using strict file delimiters inside a single <vibe_files> block. 
+
+DO NOT use general markdown code fences (like \`\`\`) around the files. Use ONLY the explicit file delimiters.
+
+Follow this EXACT output structure and generate ALL referenced files (main, engine headers, engine source):
+
+<vibe_files>
+--- FILE: src/main.cpp ---
+#include <Arduino.h>
+#include "AppEngine.h"
+
+AppEngine engine;
+
+void setup() {
+    engine.begin();
+}
+
+void loop() {
+    engine.update();
+}
+--- FILE: include/AppEngine.h ---
+#pragma once
+#include <Arduino.h>
+
+class AppEngine {
+public:
+    AppEngine();
+    void begin();
+    void update();
+};
+--- FILE: src/AppEngine.cpp ---
+#include "AppEngine.h"
+
+AppEngine::AppEngine() {}
+void AppEngine::begin() {
+    Serial.begin(115200);
+}
+void AppEngine::update() {
+    // core systems loop
+}
+</vibe_files>
+
+CRITICAL: You must always output a valid <vibe_meta> JSON block at the very end of your response detailing every single physical wire connection and external libraries. Do not omit this tag under any circumstances.`,
 
   'Standard C (Generic)':
     'You are the vibeC compiler. Translate the user\'s high-level vibe instructions ' +
@@ -177,14 +282,23 @@ async function requestCompletion(
   source: string,
   config: VibeCConfig,
   platform: TargetPlatform,
-  modular: boolean = false,
+  codeStructure: string = 'single',
 ): Promise<string> {
+  let systemPrompt = SYSTEM_PROMPTS[platform];
+  if (platform !== 'Standard C (Generic)') {
+    if (codeStructure === 'modular') {
+      systemPrompt = MODULAR_SYSTEM_PROMPTS[platform];
+    } else if (codeStructure === 'pio_native') {
+      systemPrompt = PIO_NATIVE_SYSTEM_PROMPTS[platform];
+    }
+  }
+
   const response = await axios.post<ChatCompletionResponse>(
     config.apiUrl,
     {
       model: config.modelName,
       messages: [
-        { role: 'system', content: modular ? MODULAR_SYSTEM_PROMPTS[platform] : SYSTEM_PROMPTS[platform] },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: source },
       ],
     },
@@ -261,9 +375,16 @@ function parseVibeFiles(
 
   let match: RegExpExecArray | null;
   while ((match = fileRegex.exec(body)) !== null) {
+    let content = match[2].trim();
+    // Strip accidental markdown code fences around individual file contents
+    content = content
+      .replace(/^```(?:c|cpp|ino)?\s*\n?/i, '')
+      .replace(/\n?\s*```$/i, '')
+      .trim();
+
     files.push({
       relativePath: match[1].trim(),
-      content: match[2].trim(),
+      content: content,
     });
   }
 
@@ -462,6 +583,133 @@ function handleCompilationError(error: unknown): string {
   }
 }
 
+/**
+ * Recursively retrieves all .cpp and .h files within the project directory.
+ */
+async function getProjectCodeFiles(dir: string): Promise<Array<{ relativePath: string; content: string }>> {
+  const files: Array<{ relativePath: string; content: string }> = [];
+  async function walk(currentDir: string) {
+    const entries = await fs.readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext === '.cpp' || ext === '.h') {
+          const relPath = path.relative(dir, fullPath).replace(/\\/g, '/');
+          const content = await fs.readFile(fullPath, 'utf-8');
+          files.push({ relativePath: relPath, content });
+        }
+      }
+    }
+  }
+  await walk(dir);
+  return files;
+}
+
+/**
+ * Runs the project-wide synchronization via the LLM refactoring agent.
+ */
+async function runProjectSync(projectDir: string, sidebar: VibeCSidebarProvider): Promise<void> {
+  const config = await resolveConfig();
+  if (!config) {
+    vscode.window.showErrorMessage(`${EXTENSION_ID}: API Key is not configured for synchronization.`);
+    sidebar.postAgentState('disabled');
+    return;
+  }
+
+  sidebar.postAgentState('syncing');
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "vibeC Agent",
+      cancellable: false,
+    },
+    async (progress) => {
+      progress.report({ message: "Gathering project files..." });
+      sidebar.postAgentLog("Gathering project files...");
+      try {
+        const codeFiles = await getProjectCodeFiles(projectDir);
+        if (codeFiles.length === 0) {
+          vscode.window.showWarningMessage(`${EXTENSION_ID}: No code files found in the project to synchronize.`);
+          sidebar.postAgentLog("Warning: No code files found in the project to synchronize.");
+          return;
+        }
+
+        // Prepare LLM prompt with the current files
+        let userContent = "Here are the current files in the project:\n\n";
+        for (const file of codeFiles) {
+          userContent += `--- FILE: ${file.relativePath} ---\n${file.content}\n\n`;
+        }
+        userContent += "Please analyze the codebase, identify any references that need to be synchronized, and output the updated files enclosed in <vibe_files> tags using the delimiter format '--- FILE: <path> ---'.";
+
+        progress.report({ message: "Analyzing changes and synchronizing..." });
+        sidebar.postAgentLog("Analyzing codebase diffs...");
+        
+        const systemPrompt = 
+          "You are an automated refactoring agent. The user modified one of the files in the project directory. " +
+          "Analyze the change, locate any broken references, variable mismatches, or altered function signatures in the OTHER files, " +
+          "and output the updated content for those affected files only, wrapped inside <vibe_files> tags.";
+
+        const response = await axios.post<ChatCompletionResponse>(
+          config.apiUrl,
+          {
+            model: config.modelName,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userContent },
+            ],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${config.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 120_000,
+          },
+        );
+
+        const rawResponse = response.data?.choices?.[0]?.message?.content ?? '';
+        if (!rawResponse.trim()) {
+          vscode.window.showWarningMessage(`${EXTENSION_ID}: Received empty response from sync agent.`);
+          sidebar.postAgentLog("Error: Received empty response from sync agent.");
+          return;
+        }
+
+        progress.report({ message: "Writing updates..." });
+        sidebar.postAgentLog("Writing updated header architectures...");
+
+        const parsedFiles = parseVibeFiles(rawResponse);
+        if (parsedFiles && parsedFiles.length > 0) {
+          ignoreWatcher = true;
+          try {
+            for (const file of parsedFiles) {
+              const filePath = path.join(projectDir, file.relativePath);
+              await fs.mkdir(path.dirname(filePath), { recursive: true });
+              await fs.writeFile(filePath, file.content, 'utf-8');
+              sidebar.postAgentLog(`Successfully updated: ${file.relativePath}`);
+            }
+          } finally {
+            ignoreWatcher = false;
+          }
+          vscode.window.showInformationMessage("Project fully synchronized by vibeC Agent!");
+          sidebar.postAgentLog("Success: Project fully synchronized by vibeC Agent.");
+        } else {
+          vscode.window.showInformationMessage("vibeC Agent: Codebase is already synchronized. No changes needed.");
+          sidebar.postAgentLog("Info: Codebase is already synchronized. No changes needed.");
+        }
+      } catch (error: unknown) {
+        const errMsg = handleCompilationError(error);
+        sidebar.postAgentLog(`Error: ${errMsg}`);
+      } finally {
+        sidebar.postAgentState('idle');
+      }
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main compile handler
 // ---------------------------------------------------------------------------
@@ -478,6 +726,12 @@ async function compileVibeFile(
   sidebar: VibeCSidebarProvider,
   codeStructure: string = 'single',
 ): Promise<void> {
+  // Dispose of any active watcher before compilation starts
+  if (activeProjectWatcher) {
+    activeProjectWatcher.dispose();
+    activeProjectWatcher = undefined;
+  }
+
   // Normalise the platform, falling back to Standard C if something unexpected arrives
   const platform: TargetPlatform = VALID_PLATFORMS.has(platformArg)
     ? (platformArg as TargetPlatform)
@@ -538,10 +792,8 @@ async function compileVibeFile(
 
       try {
         // Choose prompt set based on code structure mode
-        const isModular = codeStructure === 'modular' && platform !== 'Standard C (Generic)';
-        const rawCode = isModular
-          ? await requestCompletion(vibeSource, config, platform, true)
-          : await requestCompletion(vibeSource, config, platform);
+        const isModular = (codeStructure === 'modular' || codeStructure === 'pio_native') && platform !== 'Standard C (Generic)';
+        const rawCode = await requestCompletion(vibeSource, config, platform, codeStructure);
 
         if (!rawCode.trim()) {
           const msg = 'Received an empty response from the API. Please try again.';
@@ -582,12 +834,31 @@ async function compileVibeFile(
             );
             sidebar.setLastProjectDir(projectDir);
 
+            // Set up a new filesystem watcher for project synchronization
+            const pattern = new vscode.RelativePattern(projectDir, '**/*.{cpp,h,ini}');
+            activeProjectWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+            let debounceTimer: NodeJS.Timeout | undefined;
+            activeProjectWatcher.onDidChange((uri) => {
+              if (ignoreWatcher) {
+                return;
+              }
+              if (debounceTimer) {
+                clearTimeout(debounceTimer);
+              }
+              debounceTimer = setTimeout(() => {
+                const fileName = path.basename(uri.fsPath);
+                sidebar.postAgentState('pending_sync', fileName);
+              }, 1500);
+            });
+
             const folderName = path.basename(projectDir);
             const msg = `Compiled → ${folderName}/ (${parsedFiles.length} modules)`;
             vscode.window.showInformationMessage(
               `${EXTENSION_ID}: ${msg} [${platform}]`,
             );
             sidebar.sendStatus('success', msg);
+            sidebar.postAgentState('idle');
           } else {
             // Fallback: modular parse failed, write as single file
             const outputName = await writeAndOpenOutputFile(
@@ -600,6 +871,7 @@ async function compileVibeFile(
               `${EXTENSION_ID}: ${msg} [${platform}]`,
             );
             sidebar.sendStatus('success', msg);
+            sidebar.postAgentState('disabled');
           }
         } else {
           const outputName = await writeAndOpenOutputFile(
@@ -612,6 +884,7 @@ async function compileVibeFile(
             `${EXTENSION_ID}: ${msg} [${platform}]`,
           );
           sidebar.sendStatus('success', msg);
+          sidebar.postAgentState('disabled');
         }
       } catch (error: unknown) {
         const msg = handleCompilationError(error);
@@ -628,6 +901,15 @@ async function compileVibeFile(
 export function activate(context: vscode.ExtensionContext): void {
   // 1. Create and register the sidebar webview provider
   const sidebarProvider = new VibeCSidebarProvider(context.extensionUri);
+
+  sidebarProvider.onAgentSync = () => {
+    const projectDir = sidebarProvider.getLastProjectDir();
+    if (projectDir) {
+      runProjectSync(projectDir, sidebarProvider);
+    } else {
+      vscode.window.showWarningMessage('vibeC Agent: No active project directory found. Please compile a .vibe file first.');
+    }
+  };
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -709,5 +991,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // Nothing to dispose — all disposables are tracked via context.subscriptions.
+  if (activeProjectWatcher) {
+    activeProjectWatcher.dispose();
+  }
 }

@@ -1,102 +1,151 @@
-<<<<<<< HEAD
-README.md
-# vibeC
+# vibeC VS Code Extension
 
-An unconventional, LLM-powered Domain Specific Language (DSL) and Visual Studio Code extension that transpiles natural language specifications and structural intentions directly into clean, compliant C code.
+![vibeC Control Panel Sidebar UI and Code Compilation Interface](images/control_panel.png)
 
-Unlike traditional compilers that rely on strict grammar parsing, vibeC utilizes an abstraction layer driven by Large Language Models, allowing developers to generate functional C modules from high-level behavioral descriptions.
-
-## Architectural Features
-
-* **Syntax-Free Transpilation:** Eliminates boilerplate code production by interpreting intent rather than enforcing rigid formatting guidelines.
-* **Backend Autonomy:** Fully LLM-agnostic. Supports any OpenAI-compatible completions endpoint, including cloud-based infrastructure (Groq, OpenRouter) and offline processing environments (Ollama, LM Studio).
-* **Native VS Code Integration:** Implements native progress monitoring APIs and structured asynchronous task processing to ensure UI responsiveness.
-
-## Installation and Setup
-=======
-
-<p align="center">
-  <img src="https://img.shields.io/github/v/release/d7main/vibec-lang?style=flat-square&color=66ffff" alt="Release Version">
-  <img src="https://img.shields.io/github/license/d7main/vibec-lang?style=flat-square&color=66ffff" alt="License">
-  <img src="https://img.shields.io/badge/platform-VS%20Code-007acc?style=flat-square" alt="Platform">
-</p>
-
-<h1 align="center">vibeC</h1>
-
-<p align="center">
-  <strong>An unconventional, AI-driven Domain Specific Language (DSL) and Visual Studio Code extension that transpiles natural language specifications into clean, compliant C code.</strong>
-</p>
+vibeC is an intent-driven development framework and Visual Studio Code extension that transpiles high-level behavioral specifications written in plain natural language (contained within `.vibe` files) into compilable C/C++ architectures. The compiler uses Large Language Models (LLMs) to synthesize target code, resolve hardware component wiring conflicts, and execute automated synchronization routines across generated codebases.
 
 ---
 
-> Traditional compilers rely on strict grammar parsing. vibeC shifts the paradigm by utilizing an abstraction layer driven by Large Language Models, allowing developers to generate functional, production-ready C modules from high-level behavioral descriptions and pure intentions.
+## Technical Architecture Overview
+
+The following diagram illustrates the flow from specification compilation to multi-file code generation and real-time project synchronization.
+
+```mermaid
+graph TD
+    A[".vibe Specification File"] --> B["Compilation Trigger"]
+    B --> C["LLM Chat Completions API"]
+    C --> D{"Parse LLM Response"}
+    D -->|"<vibe_meta>"| E["Extract Peripherals & Dependencies"]
+    D -->|"<vibe_files>"| F["Extract Code Files"]
+    E --> G["Generate platformio.ini Configuration"]
+    F --> H{"Architecture Mode"}
+    H -->|Single File| I["Write main .ino / .c file"]
+    H -->|Modular / PIO Native| J["Construct Directory Hierarchy: src/ & include/"]
+    G --> K["Output Target Directory"]
+    I --> K
+    J --> K
+    K --> L["Instantiate FileSystemWatcher"]
+    L --> M["File Change Detected"]
+    M --> N["Update Sidebar State: pending_sync"]
+    N --> O["User Triggers Synchronization"]
+    O --> P["Refactoring Agent: runProjectSync"]
+    P --> Q["Gather All Project Code Files"]
+    Q --> R["LLM Refactoring Request"]
+    R --> S["Write Code Updates with ignoreWatcher Lock"]
+    S --> K
+```
 
 ---
 
+## Directory Topology
+
+Depending on the chosen architecture settings, vibeC constructs either a single flat output file or a fully structured PlatformIO project layout:
+
+### 1. Single File Structure
+When compiling in `Single File` mode, the output matches the following layout:
+```
+workspace-root/
+├── project_spec.vibe
+├── project_spec.ino            # Compiled C/C++ source file (or .c in Standard C mode)
+└── platformio.ini              # Generated environment setup configuration
+```
+
+### 2. Modular C++ / PlatformIO Native Project Structure
+When compiling in modular layouts (`modular` or `pio_native`), vibeC encapsulates the system inside a dedicated workspace directory named after the `.vibe` source file:
+```
+workspace-root/
+├── project_spec.vibe           # Original specifications file
+└── project_spec/               # Target workspace subdirectory
+    ├── platformio.ini          # Configured target environment, including lib_deps
+    ├── SPECIFICATION.md        # Technical specification document (if generated)
+    ├── include/                # Header file repository
+    │   ├── AppEngine.h         # Core OOP header containing class structure definition
+    │   └── [Module].h          # Extracted component headers (e.g. Display.h, Sensor.h)
+    └── src/                    # Source file repository
+        ├── main.cpp            # Entrypoint file instantiating the AppEngine loop
+        ├── AppEngine.cpp       # Core engine execution routines
+        └── [Module].cpp        # Component implementation source files
+```
+
 ---
 
-## Architectural Features
+## Operational Workflows
 
-* **Syntax-Free Transpilation:** Eliminates boilerplate code production by interpreting architectural intent rather than enforcing rigid formatting guidelines or syntax constraints.
-* **Backend Autonomy:** Fully LLM-agnostic. Supports any OpenAI-compatible completions endpoint, including cloud infrastructure (Groq, OpenRouter) and offline processing environments (Ollama, LM Studio).
-* **Native VS Code Integration:** Implements native asynchronous progress monitoring APIs to ensure UI responsiveness during the generation cycle.
+![vibeC AI Agent Synchronization Interface](images/agent_terminal.png)
+
+### 1. The Compilation Phase
+1. **Validation:** The extension verifies the open file extension (`.vibe`), confirms an active VS Code workspace is open, and validates the configuration namespace (`vibeC.apiKey`).
+2. **API Dispatch:** The specification is bundled with platform-specific system instructions (e.g., memory optimization parameters for AVR, networking configurations for ESP32) and sent to the configured OpenAI-compatible completions endpoint.
+3. **Extraction & File I/O:**
+   - **Metadata Extraction:** The compiler isolates the `<vibe_meta>` tag structure, extracting external dependencies (mapped to `lib_deps` inside the generated `platformio.ini`) and physical wiring parameters (rendered inside the sidebar configuration map).
+   - **File Construction:** In modular modes, the contents wrapped inside `<vibe_files>` tags are parsed, splitting file payloads by delimiter headers (`--- FILE: <path> ---`) and creating the nested directory hierarchy.
+
+### 2. File Modification & Change Detection
+Upon successful modular compilation, a `FileSystemWatcher` is registered over the target directory pattern `**/*.{cpp,h,ini}`:
+1. **Change Interception:** When a user modifies a generated file, the watcher intercepts the write.
+2. **Debounce and Status Push:** The watcher debounces incoming changes for 1.5 seconds, then notifies the sidebar webview using `postAgentState('pending_sync', fileName)`.
+3. **UI Transition:** The AI Agent Terminal sidebar component transitions to the `Pending Sync` state, changing the status badge to a flashing amber indicator and altering the sync button contextually to "Run Sync".
+
+### 3. Asynchronous Project Refactoring
+When the user triggers synchronization from the Sidebar Terminal:
+1. **State Transition:** The sidebar is placed in the `syncing` state, disabling interactive buttons and initializing the terminal log buffer.
+2. **Source Aggregation:** The backend compiles all existing `.cpp` and `.h` source code blocks from the generated directory structure.
+3. **LLM Synthesis:** The current codebase is sent to the refactoring model. The model identifies signature changes, variable inconsistencies, or out-of-sync declarations, outputting the necessary file modifications.
+4. **File System Update with Watcher Suspension:** To prevent recursive trigger loops, the watcher flag `ignoreWatcher` is set to `true`. Files are updated, progress logs are appended to the Sidebar console in real-time, and the watcher lock is subsequently released. The UI state is finally reset to `idle`.
 
 ---
 
-## Configuration
+## AI Agent Terminal Subsystem Deep Dive
 
-The extension exposes variables within the VS Code settings namespace. Access these parameters via the Configuration Editor (`Ctrl + ,` / `Cmd + ,`) by searching for `vibeC`.
+The vibeC AI Agent Terminal serves as a localized control terminal integrated directly within the sidebar webview. It coordinates refactoring operations when workspace source files diverge from their initial design declarations.
 
-| Setting Option | Data Type | Default Value | Description |
+### Event-Driven Mechanics
+The system utilizes a structured event-driven lifecycle to safely monitor, process, and execute updates:
+1. **Interception:** A dedicated VS Code `FileSystemWatcher` continuously monitors files matching the workspace-specific pattern `**/*.{cpp,h,ini}`. When a file write is committed, the watcher captures the target file URI.
+2. **Debounce Stabilization:** To prevent multiple concurrent updates during rapid keystrokes or IDE auto-save routines, the file mutation signals pass through a debouncing pipeline. An internal timer delays notification by exactly `1500ms`. If another file modification is intercepted before this timer expires, the previous timer is discarded and reset.
+3. **State Push & UI Notification:** Once the stabilization timer expires, the backend issues an IPC post message (`agentStateChanged`) to the sidebar webview. The terminal UI changes state to `pending_sync`, rendering the visual flashing amber badge and updating the context button.
+4. **Non-Destructive Refactoring Loop:** When the user clicks the sync button, the extension gathers the absolute content of all source code files within the project. It sends this state to the LLM backend alongside refactoring prompts to correct signature mismatches and broken links in dependencies. The returned modifications are parsed and written back to disk non-destructively, preserving manual file creations while aligning declaration mismatches.
+
+---
+
+## Technical Features
+
+### 1. Hardware Pin Validation Rules
+The extension incorporates real-time electrical layout validation directly inside the webview rendering layer:
+- **Conflict Detection:** If multiple distinct components claim the same physical hardware pin (excluding common power references like `VCC`, `GND`, `3V3`, `5V`), the UI flags the pin with a high-priority warning: `⚠️ CONFLICT!`.
+- **Strapping Pin Guard:** When compiling targeting the ESP32 platform, the rendering engine verifies the output pin assignments against known hardware strapping pins (`GPIO 0`, `GPIO 1`, `GPIO 3`, `GPIO 5`, `GPIO 12`, `GPIO 15`). If a component uses a strapping pin, the UI raises a warning badge: `⚠️ STRAPPING PIN!`, protecting developers from boot-sequence failures.
+
+### 2. PlatformIO Environment Injection
+vibeC automatically configures a functional developer environment:
+- **Target Platform Injection:** Depending on the selected target, the compiler generates a fully structured `platformio.ini` in the project root:
+  - **ESP32:** Configures `platform = espressif32`, `board = esp32dev`, and `framework = arduino`.
+  - **AVR:** Configures `platform = atmelavr`, `board = uno`, and `framework = arduino`.
+- **Dependency Integration:** The external library requirements parsed from the model's `<vibe_meta>` block are translated directly into the configuration as separate, clean lines inside the `lib_deps` setting block.
+
+### 3. Concurrency & Synchronization State Locks
+To ensure operational stability and prevent recursion loops, the extension implements locks at both the backend and frontend:
+- **ignoreWatcher Lock:** An internal boolean flag `ignoreWatcher` is managed within the extension scope. During automated file writes by the synchronization agent, `ignoreWatcher` is set to `true`. This instructs the active `FileSystemWatcher` to ignore the filesystem writes, eliminating infinite-loop refactoring cascades. Once files are written, `ignoreWatcher` is restored to `false` within a `finally` safety block.
+- **UI Interaction Lock:** When the terminal is in a `syncing` state, all compilation and refactoring controls (including `#compileBtn` and `#agentSyncBtn`) are disabled, ensuring execution runs to completion before a new request is initialized.
+
+---
+
+## Technical Configuration Namespace
+
+The extension settings namespace resides under `vibeC` configuration properties:
+
+| Configuration Parameter | Data Type | Default Value | Description |
 | :--- | :--- | :--- | :--- |
-| `vibeC.apiKey` | String | `""` | Authentication token for the selected LLM provider. |
-| `vibeC.apiUrl` | String | `https://api.groq.com/openai/v1/chat/completions` | The full endpoint URL for the chat completions request. |
-| `vibeC.modelName` | String | `llama-3.3-70b-versatile` | The target model identifier to handle the structural generation. |
-
-> **Local Execution Tip:** For offline execution via Ollama, redirect the target URL to `http://localhost:11434/v1/chat/completions` and provide a placeholder value for the API key.
+| `vibeC.apiKey` | String | `""` | Bearer authentication token for authorization with the completions provider. |
+| `vibeC.apiUrl` | String | `https://api.groq.com/openai/v1/chat/completions` | Fully qualified URL routing requests to the target completions API. |
+| `vibeC.modelName` | String | `llama-3.3-70b-versatile` | The target model identifier passed inside the request body payload. |
 
 ---
-<img width="1155" height="668" alt="Snímek obrazovky 2026-05-26 172617" src="https://github.com/user-attachments/assets/7c5644d0-ee80-4618-87e6-365b76d4e1c9" />
-## Installation & Deployment
->>>>>>> 8db49f748e30c332e6662384ed58a1febf4be1cc
 
-### Prerequisites
-* Node.js (v18 or higher recommended)
-* Visual Studio Code
+## Troubleshooting
 
-<<<<<<< HEAD
-### Local Deployment
-1. Clone the repository to your local environment:
-   ```bash
-   git clone [https://github.com/d7main/vibec-lang.git](https://github.com/d7main/vibec-lang.git)
-=======
-## Showcase & Demonstration
-
-### 1. Extension Configuration Namespace
-Access the dedicated configuration block via `Ctrl + ,` to manage API routing parameters, secure authorization keys, and change target model architectures dynamically.
-
-<img width="1502" height="639" alt="Snímek obrazovky 2026-05-26 173718" src="https://github.com/user-attachments/assets/cdcbee52-ca69-400c-8e84-98edc54427b6" />
-
-### 2. File Creation Pipeline
-Initialize any `.vibe` target file using the native file system interface within the isolated Extension Development Host environment.
-<img width="1523" height="220" alt="Snímek obrazovky 2026-05-26 173847" src="https://github.com/user-attachments/assets/21ebaefc-5e92-402e-88d9-3e922b6ec1a1" />
-
-
-### 3. Intent-Driven Transpilation
-Write high-level operational descriptions in plain natural language. The compilation process interprets structural intention and delivers compliant outputs immediately.
-
-<img width="1525" height="297" alt="Snímek obrazovky 2026-05-26 173928" src="https://github.com/user-attachments/assets/cb73f0f8-0a3f-4425-8646-cbedd2598837" />
-
-
-
-### Local Setup
-1. Clone the repository:
-   ```bash
-  
-   Access the root directory and install the development dependencies:
-   ```bash
-cd vibec-lang
-npm install
-
-   git clone [https://github.com/d7main/vibec-lang.git](https://github.com/d7main/vibec-lang.git)
->>>>>>> 8db49f748e30c332e6662384ed58a1febf4be1cc
+| Incident / Symptom | Root Cause | Remediation Procedure |
+| :--- | :--- | :--- |
+| **IntelliSense errors** (undefined headers or syntax highlighting markers) in VS Code editor. | VS Code IntelliSense is referencing the global workspace folder instead of the generated project directory subfolders. | Run the PlatformIO Rebuild IntelliSense Index command, or open the generated project subdirectory directly as the workspace root. |
+| **File watcher infinite loops** (sync loop executes repeatedly after write lock releases). | The `ignoreWatcher` concurrency lock is not engaged, causing filesystem writes from the refactoring routine to trigger the watcher. | Ensure that `ignoreWatcher` is set to `true` immediately before filesystem writes in `runProjectSync` and returned to `false` in a `finally` block. |
+| **API Connection Timeout / Post Failures.** | High latency or connection drop-offs on the completions endpoint (timeout set to 120,000ms). | Verify network routing, validate configuration values for `apiUrl` and `apiKey`, and check the service status of the completions provider. |
+| **Missing/Malformed Hardware Configuration Map.** | The LLM failed to output a structurally correct `<vibe_meta>` JSON block or omitted the closing tag entirely. | Recompile the `.vibe` source. Ensure the specification file clearly requests hardware integrations, prompting the LLM to output peripheral details. |
