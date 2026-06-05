@@ -10,28 +10,24 @@ Unlike standard software-focused AI assistants, vibeC bridges natural language r
 
 The system pipeline structures development into sequential verification and synchronization layers:
 
-```text
-                  [ .vibe Source Specification ]
-                                │
-                                ▼
-            [ Hardware Configuration Map Verification ]
-                                │
-                                ▼
-                   [ LLM Generation Pipeline ]
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼                                               ▼
-[ Single File Mode ]                        [ PlatformIO Native Mode ]
-(Monolithic .ino / .c)                     (Modular OOP C++ Structure)
-                                                        │
-                                                        ▼
-                                           [ Active FileSystemWatcher ]
-                                                        │
-                                                        ▼
-                                           [ vibeC AI Agent Terminal ]
-                                          (Isolated Project Refactoring)
-## Core Capabilities
+## Technical Architecture Overview
 
+The system pipeline structures development into sequential verification and synchronization layers:
+
+```mermaid
+graph TD
+    A([.vibe Source Specification]) --> B[Hardware Configuration Map Verification]
+    B --> C[LLM Generation Pipeline]
+    C --> D[Single File Mode <br> Monolithic .ino / .c]
+    C --> E[PlatformIO Native Mode <br> Modular OOP C++ Structure]
+    E --> F[Active FileSystemWatcher]
+    F --> G([vibeC AI Agent Terminal <br> Isolated Project Refactoring])
+
+    style A fill:#1f2937,stroke:#3b82f6,stroke-width:2px
+    style G fill:#1f2937,stroke:#eab308,stroke-width:2px
+    style E stroke:#10b981,stroke-width:2px
+## Core Capabilities
+```
 ### 1. Interactive Hardware Configuration Map
 * **Hardware-Aware Constraint Enforcement:** Evaluates physical pin assignments against target microcontroller architectures (e.g., ESP32-S3) directly within the custom sidebar interface.
 * **Signal Mapping & Conflict Detection:** Automatically flags overlapping GPIO allocations and structural mismatches (such as mapping digital I2C lines to power rails or invalid hardware serial ports) before triggering code generation.
