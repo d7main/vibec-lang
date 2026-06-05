@@ -10,7 +10,8 @@ Unlike standard software-focused AI assistants, vibeC bridges natural language r
 
 The system pipeline structures development into sequential verification and synchronization layers:
 
-[ .vibe Source Specification ]
+```text
+                  [ .vibe Source Specification ]
                                 │
                                 ▼
             [ Hardware Configuration Map Verification ]
@@ -29,10 +30,6 @@ The system pipeline structures development into sequential verification and sync
                                                         ▼
                                            [ vibeC AI Agent Terminal ]
                                           (Isolated Project Refactoring)
-
-
----
-
 ## Core Capabilities
 
 ### 1. Interactive Hardware Configuration Map
